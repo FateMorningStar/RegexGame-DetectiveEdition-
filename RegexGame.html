@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Regex Challenge Game</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     REGEX CHALLENGE GAME — "Case File" edition
+     Concept: a detective matching patterns against intercepted
+     evidence (plates, IPs, timestamps, codenames). A stack of
+     typewritten manila folders sits on a dark desk; correct and
+     incorrect answers land as ink rubber-stamps on the page.
+     ============================================================ */
+
+  :root{
+    --desk: #0e0c09;
+    --paper: #cdb98c;
+    --paper-2: #c3ae82;
+    --paper-3: #d4c093;
+    --ink: #221d17;
+    --ink-dim: #6b5c46;
+    --stamp-red: #8f2f22;
+    --stamp-green: #2c5c3d;
+    --font: 'Special Elite', 'Courier New', monospace;
+    --noise: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNTAiIGhlaWdodD0iMjUwIj48ZmlsdGVyIGlkPSJuIj48ZmVUdXJidWxlbmNlIHR5cGU9ImZyYWN0YWxOb2lzZSIgYmFzZUZyZXF1ZW5jeT0iMC44NSIgbnVtT2N0YXZlcz0iMiIgc3RpdGNoVGlsZXM9InN0aXRjaCIvPjxmZUNvbG9yTWF0cml4IHR5cGU9Im1hdHJpeCIgdmFsdWVzPSIwIDAgMCAwIDAgIDAgMCAwIDAgMCAgMCAwIDAgMCAwICAwIDAgMCAwLjM1IDAiLz48L2ZpbHRlcj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWx0ZXI9InVybCgjbikiLz48L3N2Zz4=");
+  }
+
+  *{ box-sizing: border-box; }
+
+  html,body{
+    margin:0; padding:0; min-height:100%;
+    font-family: var(--font);
+    color: var(--ink);
+  }
+
+  body{
+    background:
+      radial-gradient(ellipse at 50% 0%, #241f17 0%, var(--desk) 60%);
+    min-height: 100vh;
+    display:flex; align-items:center; justify-content:center;
+    padding: 40px 20px;
+  }
+
+  .stage{
+    width: 100%;
+    max-width: 560px;
+    position: relative;
+  }
+
+  /* stacked folder look: two rotated paper layers behind the active one */
+  .folder-stack{
+    position: relative;
+  }
+  .folder-stack::before,
+  .folder-stack::after{
+    content:"";
+    position:absolute; inset:0;
+    background: var(--paper-2);
+    border: 1px solid rgba(34,29,23,0.5);
+  }
+  .folder-stack::before{
+    transform: rotate(-2.4deg) translate(-8px, 6px);
+    background: var(--paper-2);
+    z-index: 1;
+  }
+  .folder-stack::after{
+    transform: rotate(1.7deg) translate(7px, -5px);
+    background: var(--paper-3);
+    z-index: 2;
+  }
+
+  .tab{
+    position: absolute;
+    top: -22px; left: 28px;
+    background: var(--paper-3);
+    border: 1px solid rgba(34,29,23,0.5);
+    border-bottom: none;
+    padding: 5px 16px 8px;
+    font-size: 11px;
+    letter-spacing: .08em;
+    color: var(--ink-dim);
+    z-index: 5;
+    transform: rotate(-0.6deg);
+  }
+
+  .paper{
+    position: relative;
+    z-index: 3;
+    background: var(--paper);
+    background-image: var(--noise);
+    background-blend-mode: multiply;
+    border: 1px solid rgba(34,29,23,0.55);
+    box-shadow: 0 24px 50px rgba(0,0,0,0.55);
+    padding: 38px 34px 30px;
+    min-height: 440px;
+    display:flex; flex-direction: column;
+  }
+
+  .letterhead{
+    display:flex; justify-content: space-between; align-items:flex-start;
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 10px;
+    margin-bottom: 22px;
+  }
+  .letterhead .agency{
+    font-size: 13px; letter-spacing: .12em; font-weight: 700;
+  }
+  .letterhead .sub{
+    font-size: 10px; color: var(--ink-dim); letter-spacing:.08em;
+  }
+  .stamp-mini{
+    border: 2px solid var(--stamp-red);
+    color: var(--stamp-red);
+    font-size: 10px;
+    letter-spacing: .1em;
+    padding: 3px 8px;
+    transform: rotate(-4deg);
+    opacity: .85;
+  }
+
+  h1.logo{
+    font-size: 24px;
+    letter-spacing: .02em;
+    margin: 6px 0 6px;
+  }
+  .tagline{
+    font-size: 13px;
+    color: var(--ink-dim);
+    line-height: 1.7;
+    margin: 0 0 26px;
+  }
+  .redact{
+    display:inline-block;
+    background: var(--ink);
+    color: transparent;
+    border-radius: 2px;
+    user-select: none;
+  }
+
+  .btn{
+    font-family: var(--font);
+    background: var(--paper-3);
+    border: 2px solid var(--ink);
+    color: var(--ink);
+    padding: 11px 22px;
+    font-size: 13px;
+    letter-spacing: .06em;
+    cursor: pointer;
+    align-self: flex-start;
+    box-shadow: 3px 3px 0 rgba(34,29,23,0.35);
+    transition: transform .1s ease, box-shadow .1s ease;
+  }
+  .btn:hover{ transform: translate(-1px,-1px); box-shadow: 4px 4px 0 rgba(34,29,23,0.4); }
+  .btn:active{ transform: translate(1px,1px); box-shadow: 1px 1px 0 rgba(34,29,23,0.4); }
+  .btn.ghost{ background: transparent; opacity:.75; }
+  .btn-row{ display:flex; gap:12px; margin-top: 22px; flex-wrap: wrap; }
+
+  .case-meta{
+    display:flex; justify-content: space-between;
+    font-size: 11.5px; color: var(--ink-dim);
+    border-top: 1px dashed var(--ink-dim);
+    border-bottom: 1px dashed var(--ink-dim);
+    padding: 7px 2px;
+    margin-bottom: 24px;
+    letter-spacing: .03em;
+  }
+  .case-meta b{ color: var(--ink); }
+
+  .evidence-label{
+    font-size: 11px; letter-spacing: .1em; color: var(--ink-dim);
+    margin-bottom: 8px;
+  }
+  .evidence-box{
+    border: 2px solid var(--ink);
+    background: rgba(255,255,255,0.12);
+    padding: 20px 18px;
+    margin-bottom: 24px;
+    position: relative;
+  }
+  .evidence-box .pin{
+    position:absolute; top:-9px; left: 16px;
+    width: 14px; height:14px; border-radius:50%;
+    background: var(--stamp-red);
+    box-shadow: 0 2px 3px rgba(0,0,0,0.4);
+  }
+  .pattern-text{
+    font-size: clamp(16px, 4vw, 21px);
+    word-break: break-all;
+  }
+
+  .field-row{
+    display:flex; align-items:center; gap: 10px;
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 8px;
+    margin-bottom: 6px;
+  }
+  .field-row label{ font-size: 12px; color: var(--ink-dim); white-space:nowrap; }
+  .field-row input{
+    flex:1;
+    background: transparent;
+    border:none; outline:none;
+    font-family: var(--font);
+    font-size: 15px;
+    color: var(--ink);
+  }
+
+  .feedback-text{
+    min-height: 20px;
+    font-size: 12.5px;
+    margin: 10px 0 4px;
+    color: var(--ink-dim);
+  }
+
+  .stamp-overlay{
+    position:absolute;
+    top: 46%; left: 50%;
+    transform: translate(-50%,-50%) rotate(-10deg) scale(0.4);
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    padding: 10px 22px;
+    border: 5px solid currentColor;
+    border-radius: 6px;
+    opacity: 0;
+    pointer-events: none;
+    text-shadow: 1px 1px 0 currentColor, -1px -1px 0 currentColor;
+    z-index: 10;
+  }
+  .stamp-overlay.show-correct{
+    color: var(--stamp-green);
+    animation: stampDown .55s cubic-bezier(.2,1.4,.4,1) forwards;
+  }
+  .stamp-overlay.show-wrong{
+    color: var(--stamp-red);
+    animation: stampShake .5s ease forwards;
+  }
+  @keyframes stampDown{
+    0%{ opacity:0; transform: translate(-50%,-50%) rotate(-10deg) scale(2.2); }
+    60%{ opacity:1; transform: translate(-50%,-50%) rotate(-10deg) scale(0.92); }
+    100%{ opacity:1; transform: translate(-50%,-50%) rotate(-10deg) scale(1); }
+  }
+  @keyframes stampShake{
+    0%{ opacity:0; transform: translate(-50%,-50%) rotate(6deg) scale(1.6); }
+    40%{ opacity:1; transform: translate(-50%,-50%) rotate(6deg) scale(0.95); }
+    55%{ transform: translate(-56%,-50%) rotate(6deg) scale(1); }
+    70%{ transform: translate(-44%,-50%) rotate(6deg) scale(1); }
+    100%{ opacity:1; transform: translate(-50%,-50%) rotate(6deg) scale(1); }
+  }
+
+  .end-score{
+    font-size: 40px;
+    margin: 4px 0 2px;
+  }
+  .end-rank{
+    font-size: 13px; letter-spacing:.08em;
+    color: var(--stamp-green);
+    margin-bottom: 22px;
+  }
+  .stat-lines div{
+    font-size: 12.5px;
+    color: var(--ink-dim);
+    margin-bottom: 5px;
+  }
+  .stat-lines b{ color: var(--ink); }
+
+  .footer-note{
+    text-align:center;
+    font-size: 11px;
+    color: var(--ink-dim);
+    margin-top: 22px;
+    letter-spacing: .04em;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .stamp-overlay{ animation: none !important; }
+    .stamp-overlay.show-correct, .stamp-overlay.show-wrong{ opacity:1; transform: translate(-50%,-50%) rotate(-6deg) scale(1); }
+    .btn{ transition:none; }
+  }
+
+  @media (max-width: 480px){
+    .paper{ padding: 30px 20px 24px; min-height: 470px; }
+    .case-meta{ flex-direction: column; gap:3px; }
+    .stamp-overlay{ font-size: 22px; padding: 8px 14px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="folder-stack">
+    <div class="tab">PATTERN DIVISION</div>
+    <div class="paper" id="screen" aria-live="polite"></div>
+  </div>
+  <div class="footer-note">10 pts per match on file &middot; &minus;1 pt per second on the clock</div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------------------------------------------------------------
+  // Evidence pool — each item is intercepted data the detective
+  // must reproduce a matching sample of.
+  // ---------------------------------------------------------------
+  const POOL = [
+    { display: "/^[A-Z]{2}\\d{4}$/",                    regex: /^[A-Z]{2}\d{4}$/,                    tag: "LICENSE PLATE" },
+    { display: "/^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$/", regex: /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/, tag: "IP ADDRESS" },
+    { display: "/^#[a-zA-Z0-9_]+$/",                    regex: /^#[a-zA-Z0-9_]+$/,                    tag: "COMMS TAG" },
+    { display: "/^[A-Za-z0-9]{8,}$/",                   regex: /^[A-Za-z0-9]{8,}$/,                   tag: "ACCESS CODE" },
+    { display: "/^\\d{2}:\\d{2}$/",                     regex: /^\d{2}:\d{2}$/,                       tag: "TIMESTAMP" },
+    { display: "/^[A-Z]\\d{9}$/",                       regex: /^[A-Z]\d{9}$/,                        tag: "PASSPORT NO." },
+    { display: "/^[a-z]+_[a-z]+$/",                     regex: /^[a-z]+_[a-z]+$/,                     tag: "ALIAS HANDLE" },
+    { display: "/^\\(\\d{3}\\)\\s\\d{3}-\\d{4}$/",      regex: /^\(\d{3}\)\s\d{3}-\d{4}$/,            tag: "PHONE INTERCEPT" },
+    { display: "/^[A-Za-z]+\\d{2,4}$/",                 regex: /^[A-Za-z]+\d{2,4}$/,                  tag: "CODENAME" },
+    { display: "/^[A-Z]{3}-\\d{3}$/",                   regex: /^[A-Z]{3}-\d{3}$/,                    tag: "CASE REFERENCE" }
+  ];
+
+  const TOTAL_ROUNDS = 8;
+  const POINTS_PER_MATCH = 10;
+
+  let queue = [];
+  let roundIndex = 0;
+  let score = 0;
+  let correctCount = 0;
+  let skippedCount = 0;
+  let roundStartTime = 0;
+  let timerHandle = null;
+
+  const screenEl = document.getElementById("screen");
+
+  function shuffle(arr){
+    const a = arr.slice();
+    for(let i = a.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function elapsedSeconds(){
+    return (Date.now() - roundStartTime) / 1000;
+  }
+
+  function renderWelcome(){
+    stopTimer();
+    screenEl.innerHTML = `
+      <div class="letterhead">
+        <div>
+          <div class="agency">PATTERN DIVISION</div>
+          <div class="sub">Regex Challenge Game &mdash; Field Manual</div>
+        </div>
+        <div class="stamp-mini">CONFIDENTIAL</div>
+      </div>
+
+      <h1 class="logo">Open a New Case</h1>
+      <p class="tagline">
+        Intercepted patterns keep coming across the desk. For each one,
+        write a sample that fits the pattern exactly. Stamp it fast &mdash;
+        <span class="redact">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+        every second on the clock costs you a point off the file.
+      </p>
+
+      <div class="btn-row">
+        <button class="btn" id="startBtn">[ OPEN CASE FILE ]</button>
+      </div>
+    `;
+    document.getElementById("startBtn").addEventListener("click", startGame);
+  }
+
+  function startGame(){
+    queue = shuffle(POOL).slice(0, TOTAL_ROUNDS);
+    roundIndex = 0;
+    score = 0;
+    correctCount = 0;
+    skippedCount = 0;
+    renderChallenge();
+  }
+
+  function renderChallenge(){
+    stopTimer();
+    const challenge = queue[roundIndex];
+    roundStartTime = Date.now();
+
+    screenEl.innerHTML = `
+      <div class="letterhead">
+        <div>
+          <div class="agency">PATTERN DIVISION</div>
+          <div class="sub">Case ${roundIndex + 1} of ${TOTAL_ROUNDS}</div>
+        </div>
+        <div class="stamp-mini">${challenge.tag}</div>
+      </div>
+
+      <div class="case-meta">
+        <span>POINTS ON FILE <b id="hudScore">${score}</b></span>
+        <span>CLOCK <b id="hudTime">0s</b></span>
+      </div>
+
+      <div class="evidence-label">INTERCEPTED PATTERN &mdash; submit a sample that matches:</div>
+      <div class="evidence-box">
+        <div class="pin"></div>
+        <div class="pattern-text">${challenge.display}</div>
+      </div>
+
+      <div class="field-row">
+        <label>SAMPLE:</label>
+        <input type="text" id="answerInput" autocomplete="off" autocapitalize="off"
+               autocorrect="off" spellcheck="false" placeholder="write a matching value..." />
+      </div>
+      <div class="feedback-text" id="feedback" role="status"></div>
+
+      <div class="btn-row">
+        <button class="btn" id="submitBtn">[ SUBMIT EVIDENCE ]</button>
+        <button class="btn ghost" id="skipBtn">[ SKIP CASE ]</button>
+      </div>
+
+      <div class="stamp-overlay" id="stampOverlay"></div>
+    `;
+
+    const input = document.getElementById("answerInput");
+    input.focus();
+    input.addEventListener("keydown", (e) => { if(e.key === "Enter") submitAnswer(); });
+    document.getElementById("submitBtn").addEventListener("click", submitAnswer);
+    document.getElementById("skipBtn").addEventListener("click", skipChallenge);
+
+    startTimer();
+  }
+
+  function startTimer(){
+    timerHandle = setInterval(() => {
+      const el = document.getElementById("hudTime");
+      if(el) el.textContent = Math.floor(elapsedSeconds()) + "s";
+    }, 250);
+  }
+
+  function stopTimer(){
+    if(timerHandle){ clearInterval(timerHandle); timerHandle = null; }
+  }
+
+  function submitAnswer(){
+    const input = document.getElementById("answerInput");
+    const feedback = document.getElementById("feedback");
+    const stamp = document.getElementById("stampOverlay");
+    const challenge = queue[roundIndex];
+    const value = input.value.trim();
+
+    if(value.length === 0){
+      feedback.textContent = "The file needs a sample before it can be stamped.";
+      return;
+    }
+
+    const isMatch = challenge.regex.test(value);
+
+    if(isMatch){
+      const secs = elapsedSeconds();
+      const earned = Math.max(1, POINTS_PER_MATCH - Math.floor(secs));
+      score += earned;
+      correctCount++;
+      feedback.textContent = `Confirmed in ${secs.toFixed(1)}s — +${earned} pts.`;
+      stamp.textContent = "MATCH CONFIRMED";
+      stamp.className = "stamp-overlay show-correct";
+      document.getElementById("hudScore").textContent = score;
+      input.disabled = true;
+      document.getElementById("submitBtn").disabled = true;
+      setTimeout(() => {
+        roundIndex++;
+        if(roundIndex >= TOTAL_ROUNDS) renderEnd();
+        else renderChallenge();
+      }, 750);
+    } else {
+      feedback.textContent = "Doesn't match the pattern — revise or skip the case.";
+      stamp.className = "";
+      void stamp.offsetWidth;
+      stamp.textContent = "NO MATCH";
+      stamp.className = "stamp-overlay show-wrong";
+      input.select();
+    }
+  }
+
+  function skipChallenge(){
+    skippedCount++;
+    roundIndex++;
+    if(roundIndex >= TOTAL_ROUNDS) renderEnd();
+    else renderChallenge();
+  }
+
+  function renderEnd(){
+    stopTimer();
+    const maxScore = TOTAL_ROUNDS * POINTS_PER_MATCH;
+    let rank;
+    if(score >= maxScore * 0.8) rank = "MASTER PATTERN ANALYST";
+    else if(score >= maxScore * 0.5) rank = "SENIOR INVESTIGATOR";
+    else rank = "ROOKIE DETECTIVE";
+
+    screenEl.innerHTML = `
+      <div class="letterhead">
+        <div>
+          <div class="agency">PATTERN DIVISION</div>
+          <div class="sub">Final Report</div>
+        </div>
+        <div class="stamp-mini" style="color:var(--stamp-green); border-color:var(--stamp-green);">CASE CLOSED</div>
+      </div>
+
+      <div class="end-score">${score} <span style="font-size:15px;color:var(--ink-dim)">/ ${maxScore} pts</span></div>
+      <div class="end-rank">RANK AWARDED &mdash; ${rank}</div>
+
+      <div class="stat-lines">
+        <div>Cases solved: <b>${correctCount} / ${TOTAL_ROUNDS}</b></div>
+        <div>Cases skipped: <b>${skippedCount}</b></div>
+        <div>Clearance rate: <b>${Math.round((correctCount / TOTAL_ROUNDS) * 100)}%</b></div>
+        <div>Avg points per case: <b>${(score / TOTAL_ROUNDS).toFixed(1)}</b></div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn" id="restartBtn">[ OPEN NEW CASE FILE ]</button>
+      </div>
+    `;
+    document.getElementById("restartBtn").addEventListener("click", startGame);
+  }
+
+  renderWelcome();
+})();
+</script>
+
+</body>
+</html>
