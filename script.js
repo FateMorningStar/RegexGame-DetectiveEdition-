@@ -2,7 +2,7 @@
   "use strict";
 
   // ---------------------------------------------------------------
-  // Evidence pool — each item is to be intercepted data that the detective
+  // Evidence pool — each item is intercepted data the detective
   // must reproduce a matching sample of.
   // ---------------------------------------------------------------
   const POOL = [
@@ -20,14 +20,17 @@
 
   const TOTAL_ROUNDS = 8;
   const POINTS_PER_MATCH = 10;
+  const ROUND_TIME_LIMIT = 30; // seconds allowed per case
 
   let queue = [];
   let roundIndex = 0;
   let score = 0;
   let correctCount = 0;
   let skippedCount = 0;
+  let timedOutCount = 0;
   let roundStartTime = 0;
   let timerHandle = null;
+  let timeoutFired = false;
 
   const screenEl = document.getElementById("screen");
 
@@ -58,9 +61,9 @@
       <h1 class="logo">Open a New Case</h1>
       <p class="tagline">
         Intercepted patterns keep coming across the desk. For each one,
-        write a sample that fits the pattern exactly. Stamp it fast &mdash;
+        write a sample that fits the pattern exactly. You have
         <span class="redact">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
-        every second on the clock costs you a point off the file.
+        30 seconds per case &mdash; answer fast for full points, or the case goes cold.
       </p>
 
       <div class="btn-row">
@@ -76,6 +79,7 @@
     score = 0;
     correctCount = 0;
     skippedCount = 0;
+    timedOutCount = 0;
     renderChallenge();
   }
 
@@ -83,6 +87,7 @@
     stopTimer();
     const challenge = queue[roundIndex];
     roundStartTime = Date.now();
+    timeoutFired = false;
 
     screenEl.innerHTML = `
       <div class="letterhead">
@@ -95,7 +100,7 @@
 
       <div class="case-meta">
         <span>POINTS ON FILE <b id="hudScore">${score}</b></span>
-        <span>CLOCK <b id="hudTime">0s</b></span>
+        <span>CLOCK <b id="hudTime">${ROUND_TIME_LIMIT}s</b></span>
       </div>
 
       <div class="evidence-label">INTERCEPTED PATTERN &mdash; submit a sample that matches:</div>
@@ -130,8 +135,13 @@
 
   function startTimer(){
     timerHandle = setInterval(() => {
+      const remaining = Math.max(0, ROUND_TIME_LIMIT - Math.floor(elapsedSeconds()));
       const el = document.getElementById("hudTime");
-      if(el) el.textContent = Math.floor(elapsedSeconds()) + "s";
+      if(el) el.textContent = remaining + "s";
+      if(remaining <= 0 && !timeoutFired){
+        timeoutFired = true;
+        handleTimeout();
+      }
     }, 250);
   }
 
@@ -139,7 +149,35 @@
     if(timerHandle){ clearInterval(timerHandle); timerHandle = null; }
   }
 
+  function handleTimeout(){
+    stopTimer();
+    const input = document.getElementById("answerInput");
+    const submitBtn = document.getElementById("submitBtn");
+    const skipBtn = document.getElementById("skipBtn");
+    const feedback = document.getElementById("feedback");
+    const stamp = document.getElementById("stampOverlay");
+
+    if(input) input.disabled = true;
+    if(submitBtn) submitBtn.disabled = true;
+    if(skipBtn) skipBtn.disabled = true;
+    if(feedback) feedback.textContent = "Time's up — case marked incomplete.";
+    if(stamp){
+      stamp.className = "";
+      void stamp.offsetWidth;
+      stamp.textContent = "TIME'S UP";
+      stamp.className = "stamp-overlay show-wrong";
+    }
+
+    timedOutCount++;
+    setTimeout(() => {
+      roundIndex++;
+      if(roundIndex >= TOTAL_ROUNDS) renderEnd();
+      else renderChallenge();
+    }, 900);
+  }
+
   function submitAnswer(){
+    if(timeoutFired) return;
     const input = document.getElementById("answerInput");
     const feedback = document.getElementById("feedback");
     const stamp = document.getElementById("stampOverlay");
@@ -180,6 +218,7 @@
   }
 
   function skipChallenge(){
+    if(timeoutFired) return;
     skippedCount++;
     roundIndex++;
     if(roundIndex >= TOTAL_ROUNDS) renderEnd();
@@ -209,6 +248,7 @@
       <div class="stat-lines">
         <div>Cases solved: <b>${correctCount} / ${TOTAL_ROUNDS}</b></div>
         <div>Cases skipped: <b>${skippedCount}</b></div>
+        <div>Cases timed out: <b>${timedOutCount}</b></div>
         <div>Clearance rate: <b>${Math.round((correctCount / TOTAL_ROUNDS) * 100)}%</b></div>
         <div>Avg points per case: <b>${(score / TOTAL_ROUNDS).toFixed(1)}</b></div>
       </div>
@@ -222,4 +262,3 @@
 
   renderWelcome();
 })();
-
