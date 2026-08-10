@@ -193,7 +193,7 @@
 
     if(isMatch){
       const secs = elapsedSeconds();
-      const earned = Math.max(1, POINTS_PER_MATCH - Math.floor(secs));
+      const earned = Math.max(1, POINTS_PER_MATCH - Math.floor(secs / 20));
       score += earned;
       correctCount++;
       feedback.textContent = `Confirmed in ${secs.toFixed(1)}s — +${earned} pts.`;
