@@ -2,7 +2,7 @@
   "use strict";
 
   // ---------------------------------------------------------------
-  // Evidence pool — each item is intercepted data the detective
+  // Evidence pool — each item is to be intercepted data that the detective
   // must reproduce a matching sample of.
   // ---------------------------------------------------------------
   const POOL = [
