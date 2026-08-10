@@ -1,0 +1,281 @@
+/* ============================================================
+   REGEX CHALLENGE GAME — "Case File" edition
+   Concept: a detective matching patterns against intercepted
+   evidence (plates, IPs, timestamps, codenames). A stack of
+   typewritten manila folders sits on a dark desk; correct and
+   incorrect answers land as ink rubber-stamps on the page.
+   Every second on the clock costs a point, so answer quickly.
+   ============================================================ */
+
+:root{
+  --desk: #0e0c09;
+  --paper: #cdb98c;
+  --paper-2: #c3ae82;
+  --paper-3: #d4c093;
+  --ink: #221d17;
+  --ink-dim: #6b5c46;
+  --stamp-red: #8f2f22;
+  --stamp-green: #2c5c3d;
+  --font: 'Special Elite', 'Courier New', monospace;
+  --noise: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNTAiIGhlaWdodD0iMjUwIj48ZmlsdGVyIGlkPSJuIj48ZmVUdXJidWxlbmNlIHR5cGU9ImZyYWN0YWxOb2lzZSIgYmFzZUZyZXF1ZW5jeT0iMC44NSIgbnVtT2N0YXZlcz0iMiIgc3RpdGNoVGlsZXM9InN0aXRjaCIvPjxmZUNvbG9yTWF0cml4IHR5cGU9Im1hdHJpeCIgdmFsdWVzPSIwIDAgMCAwIDAgIDAgMCAwIDAgMCAgMCAwIDAgMCAwICAwIDAgMCAwLjM1IDAiLz48L2ZpbHRlcj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWx0ZXI9InVybCgjbikiLz48L3N2Zz4=");
+}
+
+*{ box-sizing: border-box; }
+
+html,body{
+  margin:0; padding:0; min-height:100%;
+  font-family: var(--font);
+  color: var(--ink);
+}
+
+body{
+  background:
+    radial-gradient(ellipse at 50% 0%, #241f17 0%, var(--desk) 60%);
+  min-height: 100vh;
+  display:flex; align-items:center; justify-content:center;
+  padding: 40px 20px;
+}
+
+.stage{
+  width: 100%;
+  max-width: 560px;
+  position: relative;
+}
+
+/* stacked folder look: two rotated paper layers behind the active one */
+.folder-stack{
+  position: relative;
+}
+.folder-stack::before,
+.folder-stack::after{
+  content:"";
+  position:absolute; inset:0;
+  background: var(--paper-2);
+  border: 1px solid rgba(34,29,23,0.5);
+}
+.folder-stack::before{
+  transform: rotate(-2.4deg) translate(-8px, 6px);
+  background: var(--paper-2);
+  z-index: 1;
+}
+.folder-stack::after{
+  transform: rotate(1.7deg) translate(7px, -5px);
+  background: var(--paper-3);
+  z-index: 2;
+}
+
+.tab{
+  position: absolute;
+  top: -22px; left: 28px;
+  background: var(--paper-3);
+  border: 1px solid rgba(34,29,23,0.5);
+  border-bottom: none;
+  padding: 5px 16px 8px;
+  font-size: 11px;
+  letter-spacing: .08em;
+  color: var(--ink-dim);
+  z-index: 5;
+  transform: rotate(-0.6deg);
+}
+
+.paper{
+  position: relative;
+  z-index: 3;
+  background: var(--paper);
+  background-image: var(--noise);
+  background-blend-mode: multiply;
+  border: 1px solid rgba(34,29,23,0.55);
+  box-shadow: 0 24px 50px rgba(0,0,0,0.55);
+  padding: 38px 34px 30px;
+  min-height: 440px;
+  display:flex; flex-direction: column;
+}
+
+.letterhead{
+  display:flex; justify-content: space-between; align-items:flex-start;
+  border-bottom: 2px solid var(--ink);
+  padding-bottom: 10px;
+  margin-bottom: 22px;
+}
+.letterhead .agency{
+  font-size: 13px; letter-spacing: .12em; font-weight: 700;
+}
+.letterhead .sub{
+  font-size: 10px; color: var(--ink-dim); letter-spacing:.08em;
+}
+.stamp-mini{
+  border: 2px solid var(--stamp-red);
+  color: var(--stamp-red);
+  font-size: 10px;
+  letter-spacing: .1em;
+  padding: 3px 8px;
+  transform: rotate(-4deg);
+  opacity: .85;
+}
+
+h1.logo{
+  font-size: 24px;
+  letter-spacing: .02em;
+  margin: 6px 0 6px;
+}
+.tagline{
+  font-size: 13px;
+  color: var(--ink-dim);
+  line-height: 1.7;
+  margin: 0 0 26px;
+}
+.redact{
+  display:inline-block;
+  background: var(--ink);
+  color: transparent;
+  border-radius: 2px;
+  user-select: none;
+}
+
+.btn{
+  font-family: var(--font);
+  background: var(--paper-3);
+  border: 2px solid var(--ink);
+  color: var(--ink);
+  padding: 11px 22px;
+  font-size: 13px;
+  letter-spacing: .06em;
+  cursor: pointer;
+  align-self: flex-start;
+  box-shadow: 3px 3px 0 rgba(34,29,23,0.35);
+  transition: transform .1s ease, box-shadow .1s ease;
+}
+.btn:hover{ transform: translate(-1px,-1px); box-shadow: 4px 4px 0 rgba(34,29,23,0.4); }
+.btn:active{ transform: translate(1px,1px); box-shadow: 1px 1px 0 rgba(34,29,23,0.4); }
+.btn.ghost{ background: transparent; opacity:.75; }
+.btn-row{ display:flex; gap:12px; margin-top: 22px; flex-wrap: wrap; }
+
+.case-meta{
+  display:flex; justify-content: space-between;
+  font-size: 11.5px; color: var(--ink-dim);
+  border-top: 1px dashed var(--ink-dim);
+  border-bottom: 1px dashed var(--ink-dim);
+  padding: 7px 2px;
+  margin-bottom: 24px;
+  letter-spacing: .03em;
+}
+.case-meta b{ color: var(--ink); }
+
+.evidence-label{
+  font-size: 11px; letter-spacing: .1em; color: var(--ink-dim);
+  margin-bottom: 8px;
+}
+.evidence-box{
+  border: 2px solid var(--ink);
+  background: rgba(255,255,255,0.12);
+  padding: 20px 18px;
+  margin-bottom: 24px;
+  position: relative;
+}
+.evidence-box .pin{
+  position:absolute; top:-9px; left: 16px;
+  width: 14px; height:14px; border-radius:50%;
+  background: var(--stamp-red);
+  box-shadow: 0 2px 3px rgba(0,0,0,0.4);
+}
+.pattern-text{
+  font-size: clamp(16px, 4vw, 21px);
+  word-break: break-all;
+}
+
+.field-row{
+  display:flex; align-items:center; gap: 10px;
+  border-bottom: 2px solid var(--ink);
+  padding-bottom: 8px;
+  margin-bottom: 6px;
+}
+.field-row label{ font-size: 12px; color: var(--ink-dim); white-space:nowrap; }
+.field-row input{
+  flex:1;
+  background: transparent;
+  border:none; outline:none;
+  font-family: var(--font);
+  font-size: 15px;
+  color: var(--ink);
+}
+
+.feedback-text{
+  min-height: 20px;
+  font-size: 12.5px;
+  margin: 10px 0 4px;
+  color: var(--ink-dim);
+}
+
+.stamp-overlay{
+  position:absolute;
+  top: 46%; left: 50%;
+  transform: translate(-50%,-50%) rotate(-10deg) scale(0.4);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  padding: 10px 22px;
+  border: 5px solid currentColor;
+  border-radius: 6px;
+  opacity: 0;
+  pointer-events: none;
+  text-shadow: 1px 1px 0 currentColor, -1px -1px 0 currentColor;
+  z-index: 10;
+}
+.stamp-overlay.show-correct{
+  color: var(--stamp-green);
+  animation: stampDown .55s cubic-bezier(.2,1.4,.4,1) forwards;
+}
+.stamp-overlay.show-wrong{
+  color: var(--stamp-red);
+  animation: stampShake .5s ease forwards;
+}
+@keyframes stampDown{
+  0%{ opacity:0; transform: translate(-50%,-50%) rotate(-10deg) scale(2.2); }
+  60%{ opacity:1; transform: translate(-50%,-50%) rotate(-10deg) scale(0.92); }
+  100%{ opacity:1; transform: translate(-50%,-50%) rotate(-10deg) scale(1); }
+}
+@keyframes stampShake{
+  0%{ opacity:0; transform: translate(-50%,-50%) rotate(6deg) scale(1.6); }
+  40%{ opacity:1; transform: translate(-50%,-50%) rotate(6deg) scale(0.95); }
+  55%{ transform: translate(-56%,-50%) rotate(6deg) scale(1); }
+  70%{ transform: translate(-44%,-50%) rotate(6deg) scale(1); }
+  100%{ opacity:1; transform: translate(-50%,-50%) rotate(6deg) scale(1); }
+}
+
+.end-score{
+  font-size: 40px;
+  margin: 4px 0 2px;
+}
+.end-rank{
+  font-size: 13px; letter-spacing:.08em;
+  color: var(--stamp-green);
+  margin-bottom: 22px;
+}
+.stat-lines div{
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  margin-bottom: 5px;
+}
+.stat-lines b{ color: var(--ink); }
+
+.footer-note{
+  text-align:center;
+  font-size: 11px;
+  color: var(--ink-dim);
+  margin-top: 22px;
+  letter-spacing: .04em;
+}
+
+@media (prefers-reduced-motion: reduce){
+  .stamp-overlay{ animation: none !important; }
+  .stamp-overlay.show-correct, .stamp-overlay.show-wrong{ opacity:1; transform: translate(-50%,-50%) rotate(-6deg) scale(1); }
+  .btn{ transition:none; }
+}
+
+@media (max-width: 480px){
+  .paper{ padding: 30px 20px 24px; min-height: 470px; }
+  .case-meta{ flex-direction: column; gap:3px; }
+  .stamp-overlay{ font-size: 22px; padding: 8px 14px; }
+}
+
+
